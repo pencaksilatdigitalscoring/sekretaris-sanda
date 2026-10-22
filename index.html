@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>WUSHU SANDA - Panel Juri</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,400;0,700;0,900;1,700&display=swap');
+        
+        html, body {
+            overscroll-behavior: none; 
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        ::-webkit-scrollbar { display: none; }
+
+        body { 
+            font-family: 'Roboto Condensed', sans-serif; 
+            background-color: #020617; 
+            color: #f8fafc; 
+            margin: 0; 
+            padding: 0;
+            height: 100dvh; 
+            width: 100vw; 
+            overflow: hidden; 
+        }
+
+        /* PERINGATAN PORTRAIT (Tampil hanya jika HP berdiri) */
+        #portrait-warning { display: none; }
+        @media (orientation: portrait) {
+            #portrait-warning { display: flex; }
+            #main-wrapper { display: none !important; }
+        }
+
+        /* Layout & Colors */
+        .bg-wushu-red { background: linear-gradient(145deg, #dc2626, #991b1b); }
+        .bg-wushu-blue { background: linear-gradient(145deg, #1d4ed8, #1e3a8a); }
+        
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.9); z-index: 50000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* Buttons Scoring */
+        .btn-score {
+            transition: all 0.1s ease;
+            box-shadow: 0 1vh 2vh rgba(0,0,0,0.5);
+            border-bottom: 0.8vh solid rgba(0,0,0,0.3);
+        }
+        .btn-score:active {
+            transform: translateY(0.5vh) scale(0.98);
+            border-bottom: 0.2vh solid rgba(0,0,0,0.3);
+            box-shadow: 0 0.5vh 1vh rgba(0,0,0,0.5);
+        }
+
+        /* Responsif Glow Kuning */
+        .btn-glow {
+            box-shadow: 0 0 3vh #facc15, inset 0 0 1.5vh #facc15 !important;
+            border-color: #facc15 !important;
+            transform: scale(0.95);
+        }
+
+        /* State Tombol Abu-Abu Saat Timer Off */
+        .btn-disabled {
+            background: #334155 !important; /* Slate 700 */
+            background-image: none !important;
+            border-color: #1e293b !important;
+            color: #64748b !important; /* Slate 500 */
+            box-shadow: none !important;
+            transform: none !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Loader Sync */
+        .sync-badge { position: absolute; top: 1vh; right: 1vh; font-size: 1.2vh; background: #10b981; padding: 0.5vh 1vh; border-radius: 0.5vh; font-weight: bold; opacity: 0; transition: opacity 0.3s; z-index: 50; }
+        .sync-badge.show { opacity: 1; }
+
+        /* Login Screen Status Dot */
+        .status-dot { width: 2vh; height: 2vh; border-radius: 50%; box-shadow: inset 0 0 1vh rgba(0,0,0,0.5); }
+        .dot-offline { background-color: #475569; }
+        .dot-online { background-color: #10b981; box-shadow: 0 0 2vh #10b981; }
+    </style>
+</head>
+<body>
+
+    <!-- OVERLAY PERINGATAN HP PORTRAIT -->
+    <div id="portrait-warning" class="fixed inset-0 z-[70000] bg-slate-900 flex-col items-center justify-center text-center p-[2vh]">
+        <i class="fas fa-mobile-alt text-amber-400 text-[15vh] mb-[2vh] animate-pulse" style="transform: rotate(90deg);"></i>
+        <h1 class="text-white text-[4vh] font-black uppercase mb-[1vh]">Putar HP Anda</h1>
+        <p class="text-slate-300 text-[2.5vh] font-bold mb-[3vh]">Panel Juri harus digunakan pada posisi layar mendatar (Landscape).</p>
+        <p class="text-emerald-400 text-[2vh] font-bold animate-bounce"><i class="fas fa-hand-pointer mr-2"></i>Sentuh layar jika sudah diputar</p>
+    </div>
+
+    <!-- NOTIFIKASI TOAST (MUNCUL SAAT JURI SUDAH LOGIN) -->
+    <div id="toast-notification" class="fixed top-[5vh] left-1/2 transform -translate-x-1/2 bg-rose-600 border-[0.2vh] border-rose-400 text-white px-[3vh] py-[1.5vh] rounded-[1vh] font-bold text-[2vh] shadow-[0_1vh_3vh_rgba(0,0,0,0.8)] z-[90000] transition-all duration-300 opacity-0 -translate-y-[2vh] pointer-events-none flex items-center gap-[1vh] uppercase tracking-widest">
+        <i class="fas fa-exclamation-circle text-rose-200 text-[2.5vh]"></i>
+        <span id="toast-msg">Juri sudah login</span>
+    </div>
+
+    <!-- WRAPPER UTAMA -->
+    <div id="main-wrapper" class="h-full w-full relative">
+
+        <!-- HALAMAN OPSI (LOGIN) JURI -->
+        <div id="login-screen" class="absolute inset-0 bg-slate-950 z-[60000] flex flex-col items-center justify-center p-[2vh]">
+            <h1 class="text-[4vh] sm:text-[5vh] font-black text-amber-400 uppercase tracking-widest mb-[1vh] drop-shadow-lg text-center leading-none">Panel Juri<br class="sm:hidden"> Wushu Sanda</h1>
+            <p class="text-[1.8vh] sm:text-[2vh] text-slate-400 font-bold mb-[4vh] text-center px-[2vh]">Pilih posisi Anda. Indikator hijau menandakan terhubung.</p>
+            
+            <div class="flex flex-wrap justify-center gap-[2vh] w-full max-w-[95vw]">
+                <button id="btn-login-j1" onclick="selectJudge('j1')" class="bg-slate-800 border-[0.3vh] border-slate-600 rounded-[2vh] p-[2vh] flex-1 min-w-[15vh] max-w-[20vh] flex flex-col items-center justify-center gap-[1.5vh] hover:bg-slate-700 transition-all shadow-xl">
+                    <span class="text-[3vh] sm:text-[4vh] font-black text-white">JURI 1</span>
+                    <div class="flex items-center gap-[1vh]"><div id="dot-j1" class="status-dot dot-offline"></div><span id="text-j1" class="text-[1.5vh] font-bold text-slate-400 uppercase">KOSONG</span></div>
+                </button>
+                <button id="btn-login-j2" onclick="selectJudge('j2')" class="bg-slate-800 border-[0.3vh] border-slate-600 rounded-[2vh] p-[2vh] flex-1 min-w-[15vh] max-w-[20vh] flex flex-col items-center justify-center gap-[1.5vh] hover:bg-slate-700 transition-all shadow-xl">
+                    <span class="text-[3vh] sm:text-[4vh] font-black text-white">JURI 2</span>
+                    <div class="flex items-center gap-[1vh]"><div id="dot-j2" class="status-dot dot-offline"></div><span id="text-j2" class="text-[1.5vh] font-bold text-slate-400 uppercase">KOSONG</span></div>
+                </button>
+                <button id="btn-login-j3" onclick="selectJudge('j3')" class="bg-slate-800 border-[0.3vh] border-slate-600 rounded-[2vh] p-[2vh] flex-1 min-w-[15vh] max-w-[20vh] flex flex-col items-center justify-center gap-[1.5vh] hover:bg-slate-700 transition-all shadow-xl">
+                    <span class="text-[3vh] sm:text-[4vh] font-black text-white">JURI 3</span>
+                    <div class="flex items-center gap-[1vh]"><div id="dot-j3" class="status-dot dot-offline"></div><span id="text-j3" class="text-[1.5vh] font-bold text-slate-400 uppercase">KOSONG</span></div>
+                </button>
+                <button id="btn-login-j4" onclick="selectJudge('j4')" class="bg-slate-800 border-[0.3vh] border-slate-600 rounded-[2vh] p-[2vh] flex-1 min-w-[15vh] max-w-[20vh] flex flex-col items-center justify-center gap-[1.5vh] hover:bg-slate-700 transition-all shadow-xl">
+                    <span class="text-[3vh] sm:text-[4vh] font-black text-white">JURI 4</span>
+                    <div class="flex items-center gap-[1vh]"><div id="dot-j4" class="status-dot dot-offline"></div><span id="text-j4" class="text-[1.5vh] font-bold text-slate-400 uppercase">KOSONG</span></div>
+                </button>
+                <button id="btn-login-j5" onclick="selectJudge('j5')" class="bg-slate-800 border-[0.3vh] border-slate-600 rounded-[2vh] p-[2vh] flex-1 min-w-[15vh] max-w-[20vh] flex flex-col items-center justify-center gap-[1.5vh] hover:bg-slate-700 transition-all shadow-xl">
+                    <span class="text-[3vh] sm:text-[4vh] font-black text-white">JURI 5</span>
+                    <div class="flex items-center gap-[1vh]"><div id="dot-j5" class="status-dot dot-offline"></div><span id="text-j5" class="text-[1.5vh] font-bold text-slate-400 uppercase">KOSONG</span></div>
+                </button>
+            </div>
+        </div>
+
+
+        <!-- APLIKASI UTAMA (Tersembunyi sampai Login) -->
+        <div id="main-app" class="hidden flex-col h-full w-full relative">
+            
+            <!-- HEADER -->
+            <div class="h-[14%] sm:h-[12%] min-h-[60px] bg-slate-900 border-b-[0.2vh] border-slate-700 flex justify-between items-center px-[1.5vh] sm:px-[2vh] relative z-20 shadow-lg shrink-0">
+                <div id="sync-indicator" class="sync-badge"><i class="fas fa-sync fa-spin mr-[0.5vh]"></i> Sync</div>
+                
+                <!-- Pengaturan Identitas Juri -->
+                <div class="flex items-center gap-[1vh] sm:gap-[2vh] shrink-0">
+                    <button onclick="logoutJudge()" class="bg-slate-800 hover:bg-rose-600 border border-slate-600 text-white px-[1.5vh] py-[0.8vh] rounded-[0.8vh] text-[1.5vh] sm:text-[2vh] font-bold uppercase transition-colors shadow-md flex items-center gap-[0.5vh]">
+                        <i class="fas fa-sign-out-alt"></i><span class="hidden sm:inline"> Ganti</span>
+                    </button>
+                    <div class="bg-slate-800 border border-slate-600 rounded-[0.8vh] px-[1.5vh] py-[0.8vh] flex items-center">
+                        <i class="fas fa-user-check text-emerald-400 mr-[1vh] text-[2vh] sm:text-[2.5vh]"></i>
+                        <span id="active-judge-label" class="text-white font-black text-[2vh] sm:text-[2.5vh] uppercase whitespace-nowrap">JURI -</span>
+                    </div>
+                </div>
+
+                <!-- Info Ronde & Timer -->
+                <div class="flex-1 flex items-center justify-center gap-[2vh] sm:gap-[4vh] px-[2vh] min-w-0">
+                    <div class="flex flex-col items-center justify-center text-center overflow-hidden min-w-0">
+                        <div id="juri-babak-disp" class="text-[2.5vh] sm:text-[3.5vh] font-black text-amber-400 uppercase leading-none drop-shadow-md">RONDE 1</div>
+                        <div id="juri-match-info" class="text-[1.8vh] sm:text-[2.2vh] text-slate-100 font-bold uppercase tracking-wider mt-[0.5vh] truncate w-full">MENUNGGU PARTAI...</div>
+                    </div>
+                    <!-- TIMER -->
+                    <div class="flex flex-col items-center bg-slate-950 px-[2vh] sm:px-[3vh] py-[0.5vh] rounded-[1vh] border border-slate-700 shrink-0">
+                        <span class="text-[1.2vh] sm:text-[1.5vh] text-slate-400 font-bold tracking-widest uppercase">Timer</span>
+                        <div id="juri-timer-disp" class="text-[3vh] sm:text-[4vh] font-black font-mono leading-none text-white">00:00</div>
+                    </div>
+                </div>
+
+                <!-- Tombol Aksi Kanan -->
+                <div class="flex items-center gap-[1vh] sm:gap-[1.5vh] shrink-0">
+                    <button onclick="openModal('modal-history')" class="bg-slate-800 hover:bg-blue-600 border border-slate-600 text-white w-[5vh] h-[5vh] sm:w-[6vh] sm:h-[6vh] rounded-[1vh] text-[2vh] sm:text-[3vh] shadow-md transition-colors flex items-center justify-center">
+                        <i class="fas fa-history"></i>
+                    </button>
+                    <button onclick="toggleFullscreenAndLandscape()" class="bg-slate-800 hover:bg-emerald-600 border border-slate-600 text-white w-[5vh] h-[5vh] sm:w-[6vh] sm:h-[6vh] rounded-[1vh] text-[2vh] sm:text-[3vh] shadow-md transition-colors flex items-center justify-center">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- MAIN SPLIT AREA -->
+            <div class="flex-1 flex flex-row min-h-0 w-full overflow-hidden">
+                
+                <!-- SUDUT MERAH -->
+                <div class="flex-1 flex flex-col border-r-[0.3vh] sm:border-r-[0.4vh] border-black bg-wushu-red relative p-[1.5vh] sm:p-[3vh] min-w-0">
+                    
+                    <!-- Detail Peserta Merah -->
+                    <div class="bg-black/30 p-[1vh] sm:p-[2vh] rounded-[1.5vh] border border-white/10 shrink-0 min-w-0 flex flex-col justify-center">
+                        <h2 id="m-name" class="text-[3vh] sm:text-[4vh] font-black text-white uppercase leading-none truncate">MERAH</h2>
+                        <h3 id="m-kont" class="text-[1.5vh] sm:text-[2vh] font-bold text-red-200 uppercase tracking-widest mt-[0.5vh] truncate">KONTINGEN</h3>
+                    </div>
+                    
+                    <!-- Skor Saat Ini -->
+                    <div class="flex-1 flex flex-col items-center justify-center relative min-h-0">
+                        <div class="text-[1.5vh] sm:text-[2vh] font-bold text-red-200 uppercase tracking-widest mb-[-2vh] z-10 bg-black/40 px-[2vh] py-[0.5vh] rounded-full">Nilai Saya</div>
+                        <div id="score-merah" class="text-[15vh] sm:text-[25vh] font-black text-white font-mono leading-none drop-shadow-[0_1vh_2vh_rgba(0,0,0,0.8)]">0</div>
+                    </div>
+
+                    <!-- Tombol Skoring -->
+                    <div class="flex gap-[1.5vh] sm:gap-[2vh] h-[20vh] sm:h-[25vh] shrink-0 mt-[1vh] sm:mt-[2vh]">
+                        <button onclick="addScore(event, 'merah', 1)" class="btn-score score-action-btn flex-1 bg-gradient-to-t from-red-800 to-red-500 rounded-[2vh] border border-red-400 flex items-center justify-center text-[8vh] sm:text-[10vh] font-black text-white">+1</button>
+                        <button onclick="addScore(event, 'merah', 2)" class="btn-score score-action-btn flex-1 bg-gradient-to-t from-red-800 to-red-500 rounded-[2vh] border border-red-400 flex items-center justify-center text-[8vh] sm:text-[10vh] font-black text-white">+2</button>
+                    </div>
+                    
+                    <!-- Tombol Koreksi Kecil -->
+                    <button onclick="addScore(event, 'merah', -1)" class="score-action-btn mt-[1.5vh] sm:mt-[2vh] bg-black/40 hover:bg-black/60 text-white/70 py-[1.2vh] sm:py-[1.5vh] rounded-[1vh] font-bold text-[1.8vh] sm:text-[2vh] uppercase tracking-widest transition-colors border border-transparent">-1 Koreksi</button>
+                </div>
+
+                <!-- SUDUT BIRU -->
+                <div class="flex-1 flex flex-col border-l-[0.3vh] sm:border-l-[0.4vh] border-black bg-wushu-blue relative p-[1.5vh] sm:p-[3vh] min-w-0">
+                    
+                    <!-- Detail Peserta Biru -->
+                    <div class="bg-black/30 p-[1vh] sm:p-[2vh] rounded-[1.5vh] border border-white/10 shrink-0 min-w-0 flex flex-col justify-center text-right">
+                        <h2 id="b-name" class="text-[3vh] sm:text-[4vh] font-black text-white uppercase leading-none truncate">BIRU</h2>
+                        <h3 id="b-kont" class="text-[1.5vh] sm:text-[2vh] font-bold text-blue-200 uppercase tracking-widest mt-[0.5vh] truncate">KONTINGEN</h3>
+                    </div>
+                    
+                    <!-- Skor Saat Ini -->
+                    <div class="flex-1 flex flex-col items-center justify-center relative min-h-0">
+                        <div class="text-[1.5vh] sm:text-[2vh] font-bold text-blue-200 uppercase tracking-widest mb-[-2vh] z-10 bg-black/40 px-[2vh] py-[0.5vh] rounded-full">Nilai Saya</div>
+                        <div id="score-biru" class="text-[15vh] sm:text-[25vh] font-black text-white font-mono leading-none drop-shadow-[0_1vh_2vh_rgba(0,0,0,0.8)]">0</div>
+                    </div>
+
+                    <!-- Tombol Skoring -->
+                    <div class="flex gap-[1.5vh] sm:gap-[2vh] h-[20vh] sm:h-[25vh] shrink-0 mt-[1vh] sm:mt-[2vh]">
+                        <button onclick="addScore(event, 'biru', 1)" class="btn-score score-action-btn flex-1 bg-gradient-to-t from-blue-800 to-blue-500 rounded-[2vh] border border-blue-400 flex items-center justify-center text-[8vh] sm:text-[10vh] font-black text-white">+1</button>
+                        <button onclick="addScore(event, 'biru', 2)" class="btn-score score-action-btn flex-1 bg-gradient-to-t from-blue-800 to-blue-500 rounded-[2vh] border border-blue-400 flex items-center justify-center text-[8vh] sm:text-[10vh] font-black text-white">+2</button>
+                    </div>
+                    
+                    <!-- Tombol Koreksi Kecil -->
+                    <button onclick="addScore(event, 'biru', -1)" class="score-action-btn mt-[1.5vh] sm:mt-[2vh] bg-black/40 hover:bg-black/60 text-white/70 py-[1.2vh] sm:py-[1.5vh] rounded-[1vh] font-bold text-[1.8vh] sm:text-[2vh] uppercase tracking-widest transition-colors border border-transparent">-1 Koreksi</button>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL: RIWAYAT NILAI JURI INI -->
+    <div id="modal-history" class="modal-overlay" onclick="closeModal(event, 'modal-history')">
+        <div class="bg-slate-800 border-[0.3vh] border-slate-600 rounded-[2vh] p-[3vh] w-[90vw] max-w-[500px] text-center shadow-2xl flex flex-col relative" onclick="event.stopPropagation()">
+            <h2 class="font-black text-amber-400 text-[3vh] sm:text-[3.5vh] uppercase tracking-widest mb-[1vh]"><i class="fas fa-list-alt mr-[1vh]"></i> Riwayat Skor</h2>
+            <p class="text-slate-400 text-[1.8vh] sm:text-[2vh] mb-[3vh]">Rekapitulasi poin yang Anda berikan pada partai ini.</p>
+            
+            <div class="bg-slate-900 rounded-[1.5vh] border border-slate-700 overflow-hidden mb-[3vh]">
+                <table class="w-full text-left text-[2vh] sm:text-[2.2vh] text-white">
+                    <thead class="bg-slate-950 text-slate-400 border-b border-slate-700">
+                        <tr>
+                            <th class="p-[1.5vh] sm:p-[2vh] text-center font-bold uppercase tracking-wider">Ronde</th>
+                            <th class="p-[1.5vh] sm:p-[2vh] text-center font-bold uppercase tracking-wider text-red-400 border-l border-slate-700">Skor Merah</th>
+                            <th class="p-[1.5vh] sm:p-[2vh] text-center font-bold uppercase tracking-wider text-blue-400 border-l border-slate-700">Skor Biru</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <!-- Digenerate Otomatis -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button onclick="closeModalManual('modal-history')" class="bg-slate-700 text-white font-bold py-[1.5vh] sm:py-[2vh] rounded-[1vh] uppercase text-[2vh] hover:bg-slate-600 transition-colors w-full">Tutup</button>
+        </div>
+    </div>
+
+
+<script type="module">
+    // --- FITUR AUTO FULLSCREEN & MOBILE WAKEUP ---
+    function enforceFullscreen() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) docEl.requestFullscreen().catch(()=>console.log("FS Blocked"));
+            else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+        }
+    }
+    // Sentuhan pada peringatan memicu fullscreen (Browser butuh event user)
+    document.getElementById('portrait-warning').addEventListener('click', enforceFullscreen);
+    document.getElementById('portrait-warning').addEventListener('touchstart', enforceFullscreen, { passive: true });
+
+    // INTEGRASI FIREBASE
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCUhrQj0vxKYDtf1iSJVetY6gQ5K932blM",
+      authDomain: "wushu-sanda-b85dc.firebaseapp.com",
+      databaseURL: "https://wushu-sanda-b85dc-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "wushu-sanda-b85dc",
+      storageBucket: "wushu-sanda-b85dc.firebasestorage.app",
+      messagingSenderId: "335593032214",
+      appId: "1:335593032214:web:65e2186bee003408c48337"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const dbRef = ref(database, 'wushu_sanda_scoring');
+
+    // Variabel Global Juri
+    window.currentJudge = null;
+    window.wushuState = null;
+
+    // --- MANAJEMEN TOAST NOTIFICATION ---
+    window.showToast = function(msg) {
+        const toast = document.getElementById('toast-notification');
+        document.getElementById('toast-msg').innerText = msg;
+        
+        toast.classList.remove('opacity-0', '-translate-y-[2vh]');
+        toast.classList.add('opacity-100', 'translate-y-0');
+        
+        if(window.toastTimer) clearTimeout(window.toastTimer);
+        
+        window.toastTimer = setTimeout(() => {
+            toast.classList.remove('opacity-100', 'translate-y-0');
+            toast.classList.add('opacity-0', '-translate-y-[2vh]');
+        }, 2500);
+    }
+
+    // --- MANAJEMEN STATUS KONEKSI (ANTI-DOBEL) ---
+    window.setJudgeStatus = function(judgeId, isOnline) {
+        const jRef = ref(database, `wushu_sanda_scoring/juriStatus/${judgeId}`);
+        set(jRef, isOnline);
+        
+        // Auto disconnect di Firebase jika browser tiba-tiba tutup
+        if (isOnline) {
+            onDisconnect(jRef).set(false);
+        } else {
+            onDisconnect(jRef).cancel();
+        }
+    }
+
+    // --- LISTENER FIREBASE ---
+    onValue(dbRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            window.wushuState = data;
+            
+            // Perbarui layar mana pun yang sedang aktif
+            if (!window.currentJudge) {
+                updateLoginScreen();
+            } else {
+                updateUI();
+                
+                // Animasi badge sync
+                const badge = document.getElementById('sync-indicator');
+                badge.classList.add('show');
+                setTimeout(() => badge.classList.remove('show'), 500);
+            }
+        }
+    });
+
+    // --- FUNGSI LOGIN & LOGOUT JURI ---
+    window.updateLoginScreen = function() {
+        const state = window.wushuState;
+        if (!state || !state.juriStatus) return;
+
+        for (let i = 1; i <= 5; i++) {
+            let jId = 'j' + i;
+            let isTaken = state.juriStatus[jId] === true;
+            
+            let btn = document.getElementById(`btn-login-${jId}`);
+            let dot = document.getElementById(`dot-${jId}`);
+            let txt = document.getElementById(`text-${jId}`);
+
+            if (isTaken) {
+                btn.classList.add('opacity-50', 'cursor-not-allowed', 'border-emerald-500');
+                btn.classList.remove('hover:bg-slate-700', 'border-slate-600');
+                dot.className = 'status-dot dot-online';
+                txt.innerText = 'TERHUBUNG';
+                txt.classList.replace('text-slate-400', 'text-emerald-400');
+            } else {
+                btn.classList.remove('opacity-50', 'cursor-not-allowed', 'border-emerald-500');
+                btn.classList.add('hover:bg-slate-700', 'border-slate-600');
+                dot.className = 'status-dot dot-offline';
+                txt.innerText = 'KOSONG';
+                txt.classList.replace('text-emerald-400', 'text-slate-400');
+            }
+        }
+    }
+
+    window.selectJudge = function(judgeId) {
+        const state = window.wushuState;
+        // Cek jika slot sudah dipakai (Tampilkan TOAST, jangan ganti halaman)
+        if (state && state.juriStatus && state.juriStatus[judgeId]) {
+            showToast("Juri sudah login");
+            return;
+        }
+
+        // Login sukses
+        window.currentJudge = judgeId;
+        window.setJudgeStatus(judgeId, true);
+        
+        document.getElementById('active-judge-label').innerText = `JURI ${judgeId.replace('j', '')}`;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        
+        enforceFullscreen();
+        updateUI();
+    };
+
+    window.logoutJudge = function() {
+        if(window.currentJudge) {
+            window.setJudgeStatus(window.currentJudge, false);
+            window.currentJudge = null;
+        }
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('main-app').style.display = 'none';
+        updateLoginScreen();
+    };
+
+    // Logout otomatis saat tab ditutup
+    window.addEventListener('beforeunload', () => {
+        if(window.currentJudge) window.setJudgeStatus(window.currentJudge, false);
+    });
+
+
+    // --- FUNGSI UPDATE UI MAIN APP ---
+    function updateUI() {
+        const state = window.wushuState;
+        if (!state) return;
+
+        // Info Partai & Peserta
+        let activeMatch = null;
+        if (state.bertandingIdx !== undefined && state.bertandingIdx >= 0 && state.matches) {
+            activeMatch = state.matches[state.bertandingIdx];
+        }
+
+        if (activeMatch) {
+            const p = activeMatch.p || "-";
+            const kls = activeMatch.kelas || "";
+            const cat = activeMatch.cat ? activeMatch.cat + " " : "";
+            const gen = activeMatch.gender || "";
+            
+            document.getElementById('juri-match-info').innerText = `PARTAI ${p} | ${kls} ${cat}${gen}`;
+            document.getElementById('m-name').innerText = activeMatch.m || "MERAH";
+            document.getElementById('m-kont').innerText = activeMatch.km || "-";
+            document.getElementById('b-name').innerText = activeMatch.b || "BIRU";
+            document.getElementById('b-kont').innerText = activeMatch.kb || "-";
+        } else {
+            document.getElementById('juri-match-info').innerText = "MENUNGGU PARTAI...";
+        }
+
+        // Info Babak & Timer
+        document.getElementById('juri-babak-disp').innerText = `RONDE ${state.babak || 1}`;
+        
+        const mStr = Math.floor((state.timer || 0) / 60).toString().padStart(2, '0');
+        const sStr = ((state.timer || 0) % 60).toString().padStart(2, '0');
+        const timerEl = document.getElementById('juri-timer-disp');
+        timerEl.innerText = `${mStr}:${sStr}`;
+
+        // LOGIKA TIMER OFF (Membuat Tombol Jadi Abu-Abu)
+        const scoreBtns = document.querySelectorAll('.score-action-btn');
+        if (!state.isRunning) {
+            timerEl.classList.remove('text-white');
+            timerEl.classList.add('text-rose-500');
+            // Tambahkan kelas abu-abu nonaktif ke semua tombol poin
+            scoreBtns.forEach(btn => btn.classList.add('btn-disabled'));
+        } else {
+            timerEl.classList.remove('text-rose-500');
+            timerEl.classList.add('text-white');
+            // Hapus kelas abu-abu nonaktif saat timer berjalan
+            scoreBtns.forEach(btn => btn.classList.remove('btn-disabled'));
+        }
+
+        // Update Skor di Layar Berdasarkan Pilihan Juri & Ronde Aktif
+        const roundIdx = (state.babak || 1) - 1;
+        const judgeId = window.currentJudge;
+
+        // Ambil Skor Merah
+        let scoreM = 0;
+        if(state.merah && state.merah.juri && state.merah.juri[judgeId] && state.merah.juri[judgeId][roundIdx]) {
+            scoreM = state.merah.juri[judgeId][roundIdx];
+        }
+        document.getElementById('score-merah').innerText = scoreM;
+
+        // Ambil Skor Biru
+        let scoreB = 0;
+        if(state.biru && state.biru.juri && state.biru.juri[judgeId] && state.biru.juri[judgeId][roundIdx]) {
+            scoreB = state.biru.juri[judgeId][roundIdx];
+        }
+        document.getElementById('score-biru').innerText = scoreB;
+
+        // Render Tabel Riwayat
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const state = window.wushuState;
+        const tbody = document.getElementById('history-tbody');
+        let html = '';
+        const judgeId = window.currentJudge;
+
+        for (let r = 0; r < 3; r++) {
+            let sM = (state.merah && state.merah.juri && state.merah.juri[judgeId] && state.merah.juri[judgeId][r]) ? state.merah.juri[judgeId][r] : 0;
+            let sB = (state.biru && state.biru.juri && state.biru.juri[judgeId] && state.biru.juri[judgeId][r]) ? state.biru.juri[judgeId][r] : 0;
+            
+            html += `
+                <tr class="border-b border-slate-700/50 hover:bg-slate-800 transition-colors">
+                    <td class="p-[1.5vh] text-center font-bold text-amber-400">Ronde ${r+1}</td>
+                    <td class="p-[1.5vh] text-center font-black text-red-400 text-[2vh] sm:text-[2.5vh] border-l border-slate-700 font-mono">${sM}</td>
+                    <td class="p-[1.5vh] text-center font-black text-blue-400 text-[2vh] sm:text-[2.5vh] border-l border-slate-700 font-mono">${sB}</td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = html;
+    }
+
+    // --- FUNGSI SCORING (TOMBOL +1, +2, -1) ---
+    window.addScore = function(event, side, value) {
+        const state = window.wushuState;
+        if (!state) return;
+
+        // Pengecekan Partai Berjalan
+        if (state.bertandingIdx === undefined || state.bertandingIdx === -1) {
+            return; // Hening tanpa alert
+        }
+        
+        // Pengecekan Timer (Terkunci, Hening tanpa peringatan jika timer mati)
+        if (!state.isRunning) {
+            return; // Hening tanpa alert
+        }
+        
+        // --- Animasi Glow Kuning ---
+        const btn = event.currentTarget;
+        btn.classList.add('btn-glow');
+        setTimeout(() => {
+            btn.classList.remove('btn-glow');
+        }, 150); // Hilang setelah 150ms
+        
+        // --- Eksekusi Nilai ---
+        const roundIdx = (state.babak || 1) - 1;
+        const judgeId = window.currentJudge;
+
+        let currentScore = 0;
+        if (state[side] && state[side].juri && state[side].juri[judgeId] && state[side].juri[judgeId][roundIdx]) {
+            currentScore = state[side].juri[judgeId][roundIdx];
+        }
+
+        let newScore = currentScore + value;
+        if (newScore < 0) newScore = 0; // Tidak boleh di bawah 0
+
+        // Push ke Firebase
+        set(ref(database, `wushu_sanda_scoring/${side}/juri/${judgeId}/${roundIdx}`), newScore);
+    };
+
+    // --- MODAL & FULLSCREEN CONTROLS ---
+    window.openModal = function(id) { 
+        document.getElementById(id).classList.add('active'); 
+    }
+    window.closeModalManual = function(id) { 
+        document.getElementById(id).classList.remove('active'); 
+    }
+    window.closeModal = function(e, id) {
+        if(e.target.id === id) {
+            document.getElementById(id).classList.remove('active');
+        }
+    }
+
+    // Fungsi Gabungan Layar Penuh dan Rotasi Lanskap
+    window.toggleFullscreenAndLandscape = async function() {
+        try {
+            const docEl = document.documentElement;
+            // Jika belum fullscreen
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (docEl.requestFullscreen) await docEl.requestFullscreen();
+                else if (docEl.webkitRequestFullscreen) await docEl.webkitRequestFullscreen();
+                
+                // Coba paksa lock ke Landscape jika didukung browser HP
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape').catch(e => console.warn("Orientation lock not supported:", e));
+                }
+            } else {
+                // Keluar fullscreen
+                if (document.exitFullscreen) await document.exitFullscreen();
+                else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+                
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+            }
+        } catch (err) {
+            console.warn("Fullscreen/Landscape Error: ", err);
+        }
+    };
+</script>
+</body>
+</html>
